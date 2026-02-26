@@ -13,6 +13,7 @@ from telegram.ext import (
 from database import Database
 from price_scraper import PriceScraper
 from scheduler import PriceCheckScheduler
+from bot_metadata import setup_bot_metadata
 
 # Load environment variables
 load_dotenv()
@@ -285,13 +286,16 @@ def main():
         logger.error("TELEGRAM_BOT_TOKEN not found in environment variables!")
         return
 
-    # Create application
-    application = Application.builder().token(token).build()
-
-    # Initialize scheduler
+    # Initialize scheduler (started inside post_init when event loop exists)
     check_hour = int(os.getenv('CHECK_HOUR', '10'))
-    scheduler = PriceCheckScheduler(application.bot, database, check_hour)
-    scheduler.start()
+
+    async def post_init(app):
+        await setup_bot_metadata(app.bot)
+        scheduler = PriceCheckScheduler(app.bot, database, check_hour)
+        scheduler.start()
+
+    # Create application
+    application = Application.builder().token(token).post_init(post_init).build()
 
     # Register handlers
     application.add_handler(CommandHandler("start", start))
