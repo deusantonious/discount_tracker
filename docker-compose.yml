@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  price-bot:
+    build: .
+    container_name: telegram-price-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      # Persist database outside container
+      - ./data:/app/data
+    environment:
+      - DATABASE_PATH=/app/data/price_tracker.db
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
