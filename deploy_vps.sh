@@ -106,17 +106,58 @@ EOF
     sudo systemctl start price-bot
 
     echo ""
-    echo "✅ Service installed and started!"
+    echo "✅ Main bot service installed and started!"
+    echo ""
+
+    # --- Monitor bot service ---
+    if grep -q "MONITOR_BOT_TOKEN" .env && ! grep -q "your_monitor_bot_token_here" .env; then
+        MONITOR_SERVICE_FILE="/etc/systemd/system/price-bot-monitor.service"
+
+        echo "Creating monitor bot systemd service..."
+
+        sudo tee $MONITOR_SERVICE_FILE > /dev/null <<MEOF
+[Unit]
+Description=Telegram Price Tracker Monitor Bot
+After=network.target
+
+[Service]
+Type=simple
+User=$USER
+WorkingDirectory=$WORKING_DIR
+Environment="PATH=$SCRIPT_DIR/venv/bin"
+ExecStart=$VENV_PYTHON monitor_bot.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+MEOF
+
+        sudo systemctl daemon-reload
+        sudo systemctl enable price-bot-monitor
+        sudo systemctl start price-bot-monitor
+
+        echo "✅ Monitor bot service installed and started!"
+    else
+        echo "⚠️  MONITOR_BOT_TOKEN not set in .env — skipping monitor bot service."
+        echo "   Add it to .env and re-run to enable."
+    fi
+
     echo ""
     echo "📊 Service status:"
     sudo systemctl status price-bot --no-pager
 
     echo ""
     echo "Useful commands:"
-    echo "  sudo systemctl status price-bot    # Check status"
-    echo "  sudo systemctl restart price-bot   # Restart bot"
-    echo "  sudo systemctl stop price-bot      # Stop bot"
-    echo "  sudo journalctl -u price-bot -f    # View logs"
+    echo "  sudo systemctl status price-bot           # Check main bot status"
+    echo "  sudo systemctl restart price-bot          # Restart main bot"
+    echo "  sudo systemctl stop price-bot             # Stop main bot"
+    echo "  sudo journalctl -u price-bot -f           # View main bot logs"
+    echo ""
+    echo "  sudo systemctl status price-bot-monitor   # Check monitor bot status"
+    echo "  sudo systemctl restart price-bot-monitor  # Restart monitor bot"
+    echo "  sudo systemctl stop price-bot-monitor     # Stop monitor bot"
+    echo "  sudo journalctl -u price-bot-monitor -f   # View monitor bot logs"
 else
     echo ""
     echo "Skipping service installation."

@@ -55,6 +55,17 @@ class Database:
             )
         """)
 
+        # Analytics events table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS analytics_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_type TEXT NOT NULL,
+                user_id INTEGER,
+                details TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
         conn.commit()
         conn.close()
 
@@ -219,3 +230,108 @@ class Database:
         conn.close()
 
         return history
+
+    # ── Analytics ────────────────────────────────────────────
+
+    def log_event(self, event_type: str, user_id: int = None, details: str = None):
+        """Log an analytics event."""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO analytics_events (event_type, user_id, details) VALUES (?, ?, ?)",
+            (event_type, user_id, details),
+        )
+        conn.commit()
+        conn.close()
+
+    def get_stats(self) -> dict:
+        """Return aggregate stats for the monitor bot."""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        stats = {}
+
+        # Total users
+        cursor.execute("SELECT COUNT(*) FROM users")
+        stats["total_users"] = cursor.fetchone()[0]
+
+        # New users today
+        cursor.execute(
+            "SELECT COUNT(*) FROM users WHERE date(created_at) = date('now')"
+        )
+        stats["new_users_today"] = cursor.fetchone()[0]
+
+        # New users this week
+        cursor.execute(
+            "SELECT COUNT(*) FROM users WHERE created_at >= datetime('now', '-7 days')"
+        )
+        stats["new_users_week"] = cursor.fetchone()[0]
+
+        # Total active items
+        cursor.execute("SELECT COUNT(*) FROM tracked_items WHERE is_active = 1")
+        stats["active_items"] = cursor.fetchone()[0]
+
+        # Items added today
+        cursor.execute(
+            "SELECT COUNT(*) FROM tracked_items WHERE date(created_at) = date('now')"
+        )
+        stats["items_added_today"] = cursor.fetchone()[0]
+
+        # Items deleted today
+        cursor.execute(
+            "SELECT COUNT(*) FROM analytics_events "
+            "WHERE event_type = 'item_deleted' AND date(created_at) = date('now')"
+        )
+        stats["items_deleted_today"] = cursor.fetchone()[0]
+
+        # Price checks today
+        cursor.execute(
+            "SELECT COUNT(*) FROM analytics_events "
+            "WHERE event_type = 'price_check' AND date(created_at) = date('now')"
+        )
+        stats["price_checks_today"] = cursor.fetchone()[0]
+
+        # Successful scrapes today
+        cursor.execute(
+            "SELECT COUNT(*) FROM analytics_events "
+            "WHERE event_type = 'scrape_success' AND date(created_at) = date('now')"
+        )
+        stats["scrape_success_today"] = cursor.fetchone()[0]
+
+        # Failed scrapes today
+        cursor.execute(
+            "SELECT COUNT(*) FROM analytics_events "
+            "WHERE event_type = 'scrape_fail' AND date(created_at) = date('now')"
+        )
+        stats["scrape_fail_today"] = cursor.fetchone()[0]
+
+        # Price alerts sent today
+        cursor.execute(
+            "SELECT COUNT(*) FROM analytics_events "
+            "WHERE event_type = 'price_alert_sent' AND date(created_at) = date('now')"
+        )
+        stats["alerts_today"] = cursor.fetchone()[0]
+
+        # Top 5 most active users (by item count)
+        cursor.execute("""
+            SELECT u.user_id, u.username, u.first_name, COUNT(t.id) as item_count
+            FROM users u
+            LEFT JOIN tracked_items t ON u.user_id = t.user_id AND t.is_active = 1
+            GROUP BY u.user_id
+            ORDER BY item_count DESC
+            LIMIT 5
+        """)
+        stats["top_users"] = cursor.fetchall()
+
+        # Events in last 24h grouped by type
+        cursor.execute("""
+            SELECT event_type, COUNT(*) as cnt
+            FROM analytics_events
+            WHERE created_at >= datetime('now', '-1 day')
+            GROUP BY event_type
+            ORDER BY cnt DESC
+        """)
+        stats["events_24h"] = cursor.fetchall()
+
+        conn.close()
+        return stats

@@ -34,6 +34,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /start command."""
     user = update.effective_user
     database.add_user(user.id, user.username, user.first_name)
+    database.log_event('user_start', user.id)
 
     welcome_message = (
         f"👋 Hello, {user.first_name}!\n\n"
@@ -154,6 +155,7 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Add to database
     item_id = database.add_tracked_item(user_id, url, title, price)
+    database.log_event('item_added', user_id, f'item_id={item_id} price={price}')
 
     domain = scraper.get_domain(url)
 
@@ -264,6 +266,7 @@ async def delete_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
     success = database.delete_item(item_id, user_id)
 
     if success:
+        database.log_event('item_deleted', user_id, f'item_id={item_id}')
         await update.message.reply_text(f"✅ Item #{item_id} has been deleted.")
     else:
         await update.message.reply_text("❌ Failed to delete item.")

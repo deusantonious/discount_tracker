@@ -17,3 +17,22 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  monitor-bot:
+    build: .
+    container_name: telegram-monitor-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    environment:
+      - DATABASE_PATH=/app/data/price_tracker.db
+    command: python monitor_bot.py
+    depends_on:
+      - price-bot
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -68,19 +68,24 @@ class PriceCheckScheduler:
         item_id, user_id, url, title, current_price, last_checked = item
 
         logger.info(f"Checking item {item_id}: {url}")
+        self.database.log_event('price_check', user_id, f'item_id={item_id}')
 
         # Scrape current price
         result = self.scraper.scrape_product(url)
 
         if not result['success']:
+            self.database.log_event('scrape_fail', user_id, f'item_id={item_id} error={result.get("error", "unknown")}')
             logger.warning(f"Failed to scrape {url}: {result.get('error', 'Unknown error')}")
             return
 
         new_price = result['price']
 
         if new_price is None:
+            self.database.log_event('scrape_fail', user_id, f'item_id={item_id} no_price')
             logger.warning(f"Could not extract price from {url}")
             return
+
+        self.database.log_event('scrape_success', user_id, f'item_id={item_id} price={new_price}')
 
         # Update database
         price_changed = self.database.update_item_price(item_id, new_price)
@@ -117,6 +122,7 @@ class PriceCheckScheduler:
                 text=message,
                 parse_mode='HTML'
             )
+            self.database.log_event('price_alert_sent', user_id, f'item_id={item_id} old={old_price} new={new_price}')
 
             logger.info(f"Notified user {user_id} about price change for item {item_id}")
 

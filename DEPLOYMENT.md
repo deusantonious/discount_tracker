@@ -111,29 +111,63 @@ RestartSec=10
 WantedBy=multi-user.target
 ```
 
-8. **Enable and start the service:**
+Create monitor bot service:
+```bash
+sudo nano /etc/systemd/system/price-bot-monitor.service
+```
+
+```ini
+[Unit]
+Description=Telegram Price Tracker Monitor Bot
+After=network.target
+
+[Service]
+Type=simple
+User=YOUR_USERNAME
+WorkingDirectory=/home/YOUR_USERNAME/tg_bit
+Environment="PATH=/home/YOUR_USERNAME/tg_bit/venv/bin"
+ExecStart=/home/YOUR_USERNAME/tg_bit/venv/bin/python monitor_bot.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+8. **Enable and start the services:**
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable price-bot
 sudo systemctl start price-bot
+sudo systemctl enable price-bot-monitor
+sudo systemctl start price-bot-monitor
 ```
 
 9. **Check status:**
 ```bash
 sudo systemctl status price-bot
+sudo systemctl status price-bot-monitor
 ```
 
 10. **View logs:**
 ```bash
 sudo journalctl -u price-bot -f
+sudo journalctl -u price-bot-monitor -f
 ```
 
-### Managing the service:
+### Managing the services:
 ```bash
-sudo systemctl start price-bot    # Start
-sudo systemctl stop price-bot     # Stop
-sudo systemctl restart price-bot  # Restart
-sudo systemctl status price-bot   # Check status
+# Main bot
+sudo systemctl start price-bot
+sudo systemctl stop price-bot
+sudo systemctl restart price-bot
+sudo systemctl status price-bot
+
+# Monitor bot
+sudo systemctl start price-bot-monitor
+sudo systemctl stop price-bot-monitor
+sudo systemctl restart price-bot-monitor
+sudo systemctl status price-bot-monitor
 ```
 
 ---
